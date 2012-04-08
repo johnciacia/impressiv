@@ -52,6 +52,8 @@ Welcome to the light side of the source, young padawan.
 if( ! class_exists( 'Impressiv' ) ) {
 	class Impressiv {
 
+		const ENDPOINT = 'full';
+
 		/**
 		 *
 		 */
@@ -76,9 +78,9 @@ if( ! class_exists( 'Impressiv' ) ) {
 			if ( $post_type_object->public ) {
 				if ( in_array( $post->post_status, array( 'pending', 'draft', 'future' ) ) ) {
 					if ( $can_edit_post )
-						$actions['view_slide'] = '<a href="' . esc_url( add_query_arg( 'full', 'true', add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ) . '" title="' . esc_attr( sprintf( __( 'Preview &#8220;%s&#8221;' ), $title ) ) . '" rel="permalink">' . __( 'Preview Slide' ) . '</a>';
+						$actions['view_slide'] = '<a href="' . esc_url( add_query_arg( self::ENDPOINT, 'true', add_query_arg( 'preview', 'true', get_permalink( $post->ID ) ) ) ) . '" title="' . esc_attr( sprintf( __( 'Preview &#8220;%s&#8221;' ), $title ) ) . '" rel="permalink">' . __( 'Preview Slide' ) . '</a>';
 				} elseif ( 'trash' != $post->post_status ) {
-					$actions['view_slide'] = '<a href="' . esc_url( add_query_arg( 'full', 'true', get_permalink( $post->ID ) ) ) . '#/' . sanitize_title( $post->post_title ) . '" title="' . esc_attr( sprintf( __( 'View &#8220;%s&#8221;' ), $title ) ) . '" rel="permalink">' . __( 'View Slide' ) . '</a>';
+					$actions['view_slide'] = '<a href="' . esc_url( add_query_arg( self::ENDPOINT, 'true', get_permalink( $post->ID ) ) ) . '#/' . sanitize_title( $post->post_title ) . '" title="' . esc_attr( sprintf( __( 'View &#8220;%s&#8221;' ), $title ) ) . '" rel="permalink">' . __( 'View Slide' ) . '</a>';
 				}
 			}
 
@@ -96,37 +98,17 @@ if( ! class_exists( 'Impressiv' ) ) {
 		 *
 		 */
 		public static function slide_attributes( $post ) {
-			$data_x = get_post_meta( get_the_ID(), 'data-x', true );
-			$data_y = get_post_meta( get_the_ID(), 'data-y', true );
-			$data_z = get_post_meta( get_the_ID(), 'data-z', true );
-			$data_scale = get_post_meta( get_the_ID(), 'data-scale', true );
-			$data_rotate = get_post_meta( get_the_ID(), 'data-rotate', true );
-			?>
-			<p>
-				<label for="data-x">X:</label>
-				<input class="widefat" type="text" id="data-x" name="data_x" value="<?php echo esc_attr( $data_x ) ?>">
-			</p>
 
-			<p>
-				<label for="data-y">Y:</label>
-				<input class="widefat" type="text" id="data-y" name="data_y" value="<?php echo esc_attr( $data_y ) ?>">
-			</p>
-
-			<p>
-				<label for="data-z">Z:</label>
-				<input class="widefat" type="text" id="data-z" name="data_z" value="<?php echo esc_attr( $data_z ) ?>">
-			</p>
-
-			<p>
-				<label for="data-scale">Scale:</label>
-				<input class="widefat" type="text" id="data-scale" name="data_scale" value="<?php echo esc_attr( $data_scale ) ?>">
-			</p>
-
-			<p>
-				<label for="data-rotate">Rotate:</label>
-				<input class="widefat" type="text" id="data-rotate" name="data_rotate" value="<?php echo esc_attr( $data_rotate ) ?>">
-			</p>
-			<?php
+			foreach( self::get_attrs() as $key => $value ) {
+				$$key = get_post_meta( get_the_ID(), $key, true );
+				?>
+				<p>
+					<label for="<?php echo $key; ?>"><?php echo $key; ?>:</label>
+					<input class="widefat" type="text" id="<?php echo $key; ?>" name="<?php echo $key; ?>" value="<?php echo esc_attr( $$key ) ?>">
+				</p>
+				<?php
+			}
+			
 			wp_nonce_field( plugin_basename( __FILE__ ), 'impressiv_nonce' );
 		}
 
@@ -152,34 +134,12 @@ if( ! class_exists( 'Impressiv' ) ) {
 
 
 			//
-			if( ! empty( $_POST['data_x'] ) )
-				update_post_meta( $post_id, 'data-x', (int)$_POST['data_x'] );
-			else
-				update_post_meta( $post_id, 'data-x', 0 );
-
-
-			if( ! empty( $_POST['data_y'] ) )
-				update_post_meta( $post_id, 'data-y', (int)$_POST['data_y'] );
-			else
-				update_post_meta( $post_id, 'data-y', 0 );
-
-
-			if( ! empty( $_POST['data_z'] ) )
-				update_post_meta( $post_id, 'data-z', (int)$_POST['data_z'] );
-			else
-				update_post_meta( $post_id, 'data-z', 0 );
-
-
-			if( ! empty( $_POST['data_scale'] ) )
-				update_post_meta( $post_id, 'data-scale', (int)$_POST['data_scale'] );
-			else
-				update_post_meta( $post_id, 'data-scale', 1 );
-
-
-			if( ! empty( $_POST['data_rotate'] ) )
-				update_post_meta( $post_id, 'data-rotate', (int)$_POST['data_rotate'] );
-			else
-				update_post_meta( $post_id, 'data-rotate', 0 );
+			foreach( self::get_attrs() as $key => $value ) {
+				if( ! empty( $_POST[$key] ) )
+					update_post_meta( $post_id, $key, (int)$_POST[$key] );
+				else
+					update_post_meta( $post_id, $key, $value );
+			}
 
 
 			//
@@ -196,7 +156,7 @@ if( ! class_exists( 'Impressiv' ) ) {
 		 *
 		 */
 		public static function request( $vars ) {
-			if( isset( $vars['full'] ) ) $vars['full'] = true;
+			if( isset( $vars[self::ENDPOINT] ) ) $vars[self::ENDPOINT] = true;
 			return $vars;
 		}
 
@@ -207,7 +167,7 @@ if( ! class_exists( 'Impressiv' ) ) {
 			global $post;
 			if( $post->post_type != 'presentation' ) return;
 
-			if( get_query_var( 'full' ) ) {
+			if( get_query_var( self::ENDPOINT ) ) {
 				add_filter( 'show_admin_bar', '__return_false' );
 				require_once( dirname( __FILE__ ) . '/template.php' );
 				exit;			
@@ -218,7 +178,7 @@ if( ! class_exists( 'Impressiv' ) ) {
 		 *
 		 */
 		public static function wp_enqueue_scripts() {
-			if( get_query_var( 'full' ) ) {
+			if( get_query_var( self::ENDPOINT ) ) {
 				wp_enqueue_script( 'impress-js', plugins_url( '/js/impress.js', __FILE__ ), array( 'jquery' ), '0.5.2', true );
 
 				if ( file_exists( get_stylesheet_directory() . '/presentation.css') )
@@ -254,7 +214,23 @@ if( ! class_exists( 'Impressiv' ) ) {
 					'supports' => array( 'title', 'editor', 'comments', 'revisions', 'page-attributes' )
 				)
 			);
-			add_rewrite_endpoint( 'full', EP_PERMALINK );
+			add_rewrite_endpoint( self::ENDPOINT, EP_PERMALINK );
+		}
+
+		/**
+		 * Get an array of valid html attributes and their default values
+		 */
+		public static function get_attrs() {
+			return array( 
+				'data-x' => 0, 
+				'data-y' => 0, 
+				'data-z' => 0, 
+				'data-scale' => 1, 
+				'data-rotate' => 0, 
+				'data-rotate-x' => 0, 
+				'data-rotate-y' => 0, 
+				'data-rotate-z' => 0 
+			);
 		}
 	}
 
